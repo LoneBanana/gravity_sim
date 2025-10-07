@@ -162,6 +162,31 @@ class Object {
             }
             return 1.0f;
         }
+
+        glm::vec3 CalculateRepulsionForce(const Object& other, float repulsionStrength = 1e20) {
+    float dx = this->position[0] - other.position[0];
+    float dy = this->position[1] - other.position[1];
+    float dz = this->position[2] - other.position[2];
+    float distance = sqrt(dx * dx + dy * dy + dz * dz);
+    
+    // Minimum distance threshold (sum of radii plus buffer)
+    float minDistance = (this->radius + other.radius) * 1.5f;
+    
+    if (distance < minDistance && distance > 0) {
+        // Use Coulomb's law-like repulsion: F = k * q1 * q2 / r^2
+        // Treating masses as "charges"
+        float distance_m = distance * 1000.0f;
+        float repulsionForce = (repulsionStrength * this->mass * other.mass) / (distance_m * distance_m);
+        
+        // Direction away from other object
+        glm::vec3 direction = glm::vec3(dx / distance, dy / distance, dz / distance);
+        
+        // Return repulsion force vector
+        return direction * repulsionForce / this->mass;
+    }
+    
+    return glm::vec3(0.0f, 0.0f, 0.0f);
+}
 };
 std::vector<Object> objs = {};
 
@@ -283,8 +308,13 @@ glfwSetKeyCallback(window, keyCallback);
 
                         float acc1 = Gforce / obj.mass;
                         std::vector<float> acc = {direction[0] * acc1, direction[1]*acc1, direction[2]*acc1};
+                        
+                        ////Repulsive Force --> Force of repulsion between two objects to prevent intersections immeadiately
+                        glm::vec3 repulsion = obj.CalculateRepulsionForce(obj2, 1e-15);
+
+
                         if(!pause){
-                            obj.accelerate(acc[0], acc[1], acc[2]);
+                            obj.accelerate(acc[0] + repulsion.x, acc[1] + repulsion.y, acc[2] + repulsion.z);
                         }
 
                         //collision
