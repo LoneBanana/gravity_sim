@@ -55,6 +55,10 @@ const double G = 6.6743e-11; // m^3 kg^-1 s^-2
 const float c = 299792458.0;
 float initMass = 5.0f * pow(10, 20) / 5;
 
+// Define grid boundaries
+const float GRID_HALF_WIDTH = 5000.0f;
+const float GRID_HALF_HEIGHT = 5000.0f;
+
 GLFWwindow* StartGLU();
 GLuint CreateShaderProgram(const char* vertexSource, const char* fragmentSource);
 void CreateVBOVAO(GLuint& VAO, GLuint& VBO, const float* vertices, size_t vertexCount);
@@ -133,11 +137,55 @@ class Object {
         }
         
         void UpdatePos(){
+            // Store previous position for collision detection
+            LastPos = position;
+            
+            // Update position
             this->position[0] += this->velocity[0] / 94;
             this->position[1] += this->velocity[1] / 94;
             this->position[2] += this->velocity[2] / 94;
+            
+            // Check and handle boundary collisions
+            HandleBoundaryCollisions();
+            
             this->radius = pow(((3 * this->mass/this->density)/(4 * 3.14159265359)), (1.0f/3.0f)) / 100000;
         }
+        
+        void HandleBoundaryCollisions() {
+            // Elasticity factor (0.0 = no bounce, 1.0 = perfect bounce)
+            float elasticity = 0.8f;
+            
+            // Check X boundaries (left and right)
+            if (position.x - radius < -5000) {
+                position.x = -GRID_HALF_WIDTH + radius;
+                velocity.x = -velocity.x * elasticity;
+            } else if (position.x + radius > 5000) {
+                position.x = GRID_HALF_WIDTH - radius;
+                velocity.x = -velocity.x * elasticity;
+            }
+            
+            // Check Y boundaries (top and bottom)
+            if (position.y - radius < -5000) {
+                position.y = -GRID_HALF_HEIGHT + radius;
+                velocity.y = -velocity.y * elasticity;
+            } else if (position.y + radius > 5000) {
+                position.y = GRID_HALF_HEIGHT - radius;
+                velocity.y = -velocity.y * elasticity;
+            }
+            
+            // Check Z boundaries (front and back - if you want 3D containment)
+            // Uncomment if you want to contain in Z direction as well
+            
+            if (position.z - radius < -5000) {
+                position.z = -GRID_HALF_WIDTH + radius;
+                velocity.z = -velocity.z * elasticity;
+            } else if (position.z + radius > 5000) {
+                position.z = GRID_HALF_WIDTH - radius;
+                velocity.z = -velocity.z * elasticity;
+            }
+            
+        }
+        
         void UpdateVertices() {
             // Generate new vertices with current radius
             std::vector<float> vertices = Draw();
@@ -189,50 +237,6 @@ glm::vec3 CalculateRepulsionForce(const Object& other, float repulsionStrength =
     return glm::vec3(0.0f, 0.0f, 0.0f);
 }
 
-// Add this method to your Object class:
-glm::vec3 CalculateEdgeRepulsionForce(float planeWidth, float planeHeight, float edgeRepulsionStrength = 1e15) {
-    glm::vec3 repulsionForce(0.0f, 0.0f, 0.0f);
-    
-    // Define the boundaries (assuming plane is centered at origin)
-    float halfWidth = planeWidth / 2.0f;
-    float halfHeight = planeHeight / 2.0f;
-    
-    // Calculate distance to each edge
-    float distToRightEdge = halfWidth - this->position[0];
-    float distToLeftEdge = halfWidth + this->position[0];
-    float distToTopEdge = halfHeight - this->position[1];
-    float distToBottomEdge = halfHeight + this->position[1];
-    
-    // Threshold distance at which repulsion starts (adjust as needed)
-    float edgeThreshold = halfWidth * 0.2f; // Repulsion starts at 20% from edge
-    
-    // Right edge repulsion (push left)
-    if (distToRightEdge < edgeThreshold && distToRightEdge > 0.01f) {
-        float force = edgeRepulsionStrength / (distToRightEdge * distToRightEdge);
-        repulsionForce.x -= force; // Negative = push left
-    }
-    
-    // Left edge repulsion (push right)
-    if (distToLeftEdge < edgeThreshold && distToLeftEdge > 0.01f) {
-        float force = edgeRepulsionStrength / (distToLeftEdge * distToLeftEdge);
-        repulsionForce.x += force; // Positive = push right
-    }
-    
-    // Top edge repulsion (push down)
-    if (distToTopEdge < edgeThreshold && distToTopEdge > 0.01f) {
-        float force = edgeRepulsionStrength / (distToTopEdge * distToTopEdge);
-        repulsionForce.y -= force; // Negative = push down
-    }
-    
-    // Bottom edge repulsion (push up)
-    if (distToBottomEdge < edgeThreshold && distToBottomEdge > 0.01f) {
-        float force = edgeRepulsionStrength / (distToBottomEdge * distToBottomEdge);
-        repulsionForce.y += force; // Positive = push up
-    }
-    
-    return repulsionForce;
-}
-
 };
 std::vector<Object> objs = {};
 
@@ -256,8 +260,15 @@ int main() {
     glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 750000.0f);
     GLint projectionLoc = glGetUniformLocation(shaderProgram, "projection");
     glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-    cameraPos = glm::vec3(0.0f, 5000.0f, 0.0f);  // Position above the scene
-    pitch = -89.0f;  // Look straight down
+    cameraPos = glm::vec3(0.0f, 3000.0f, 8000.0f);  // Behind and above
+    pitch = -20.0f;  // Angled down slightly to see the plane
+    yaw = -90.0f;
+
+    glm::vec3 front;
+    front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+    front.y = sin(glm::radians(pitch));
+    front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+    cameraFront = glm::normalize(front);
 
 
     objs = {
@@ -279,6 +290,7 @@ int main() {
     CreateVBOVAO(gridVAO, gridVBO, gridVertices.data(), gridVertices.size());
     std::cout<<"Earth radius: "<<objs[1].radius<<std::endl;
     std::cout<<"Moon radius: "<<objs[0].radius<<std::endl;
+    std::cout<<"Grid boundaries: X=[" << -GRID_HALF_WIDTH << ", " << GRID_HALF_WIDTH << "], Y=[" << -GRID_HALF_HEIGHT << ", " << GRID_HALF_HEIGHT << "]" << std::endl;
 
  while (!glfwWindowShouldClose(window) && running == true) {
     float currentFrame = glfwGetTime();
@@ -339,11 +351,7 @@ int main() {
                     }
                 }
                 
-                // Add edge repulsion force
-                glm::vec3 edgeForce = obj.CalculateEdgeRepulsionForce(10000.0f, 10000.0f, 5e8f);
-                obj.accelerate(edgeForce.x, edgeForce.y, edgeForce.z);
-                
-                // Update position
+                // Update position (boundary checking happens inside UpdatePos now)
                 obj.UpdatePos();
             }
         }
@@ -723,17 +731,3 @@ std::vector<float> CreateGridVertices(float size, int divisions, const std::vect
 
     return vertices;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
