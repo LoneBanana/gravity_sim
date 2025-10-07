@@ -189,13 +189,18 @@ int main() {
     cameraPos = glm::vec3(0.0f, 5000.0f, 0.0f);  // Position above the scene
     pitch = -89.0f;  // Look straight down
 
-    
+
     objs = {
-    Object(glm::vec3(0, 0, 0), glm::vec3(0, 0, 0), 1.989*pow(10, 27), 5515),
-    Object(glm::vec3(-3000, 0, -2000), glm::vec3(1200, 0, 900), 5.97219*pow(10, 23), 3344),
-    Object(glm::vec3(-2500, 0, 2500), glm::vec3(1000, 0, -1100), 5.97219*pow(10, 23), 3344),
-    Object(glm::vec3(1500, 0, -500), glm::vec3(-800, 0, 1800), 7.34767309*pow(10, 23), 3344),
-};
+        Object(glm::vec3(-3844, 0, 1000), glm::vec3(-1000, -500, 228), 7.34767309*pow(10, 23), 3344),
+        // Object(glm::vec3(0, 0, 0), glm::vec3(0, 0, 0), 1.989 * pow(10, 30), 5515),
+       Object(glm::vec3(100, 0, 2353), glm::vec3(-100, 300, 540), 5.97219*pow(10, 23), 5515),
+       Object(glm::vec3(-5000, 650, 350), glm::vec3(0, 0, 1500), 5.97219*pow(10, 22), 5515),
+       Object(glm::vec3(5000, 650, 350), glm::vec3(0, 0, 1500), 5.97219*pow(10, 22), 5515),
+       Object(glm::vec3(0, 0, -350), glm::vec3(0, 0, 0), 1.989 * pow(10, 25), 5515),
+       Object(glm::vec3(1000, 1000, 1000), glm::vec3(-100, 300, 540), 5.97219*pow(10, 24), 5515),
+
+    };
+
 
 
     //Object --> (initPosition, initVelocity, mass, density)
