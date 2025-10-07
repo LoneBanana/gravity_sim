@@ -163,30 +163,30 @@ class Object {
             return 1.0f;
         }
 
-        glm::vec3 CalculateRepulsionForce(const Object& other, float repulsionStrength = 1e20) {
+glm::vec3 CalculateRepulsionForce(const Object& other, float repulsionStrength = 1e15) {
     float dx = this->position[0] - other.position[0];
     float dy = this->position[1] - other.position[1];
     float dz = this->position[2] - other.position[2];
     float distance = sqrt(dx * dx + dy * dy + dz * dz);
     
-    // Minimum distance threshold (sum of radii plus buffer)
-    float minDistance = (this->radius + other.radius) * 1.5f;
+    // Minimum distance threshold (sum of radii times multiplier)
+    float minDistance = (this->radius + other.radius) * 2.0f;
     
-    if (distance < minDistance && distance > 0) {
-        // Use Coulomb's law-like repulsion: F = k * q1 * q2 / r^2
-        // Treating masses as "charges"
-        float distance_m = distance * 1000.0f;
-        float repulsionForce = (repulsionStrength * this->mass * other.mass) / (distance_m * distance_m);
+    if (distance < minDistance && distance > 0.01f) {
+        // Strong repulsion using inverse square law
+        // DON'T multiply by 1000 here - distance is already handled in main loop
+        float repulsionForce = repulsionStrength / (distance * distance);
         
         // Direction away from other object
         glm::vec3 direction = glm::vec3(dx / distance, dy / distance, dz / distance);
         
-        // Return repulsion force vector
-        return direction * repulsionForce / this->mass;
+        // Return acceleration (force / mass already included)
+        return direction * repulsionForce;
     }
     
     return glm::vec3(0.0f, 0.0f, 0.0f);
 }
+
 };
 std::vector<Object> objs = {};
 
@@ -294,31 +294,30 @@ glfwSetKeyCallback(window, keyCallback);
             glUniform4f(objectColorLoc, obj.color.r, obj.color.g, obj.color.b, obj.color.a);
 
             for(auto& obj2 : objs){
-                if(&obj2 != &obj && !obj.Initalizing && !obj2.Initalizing){
-                    float dx = obj2.GetPos()[0] - obj.GetPos()[0];
-                    float dy = obj2.GetPos()[1] - obj.GetPos()[1];
-                    float dz = obj2.GetPos()[2] - obj.GetPos()[2];
-                    float distance = sqrt(dx * dx + dy * dy + dz * dz);
+if(&obj2 != &obj && !obj.Initalizing && !obj2.Initalizing){
+        float dx = obj2.GetPos()[0] - obj.GetPos()[0];
+        float dy = obj2.GetPos()[1] - obj.GetPos()[1];
+        float dz = obj2.GetPos()[2] - obj.GetPos()[2];
+        float distance = sqrt(dx * dx + dy * dy + dz * dz);
 
-                    if (distance > 0) {
-                        std::vector<float> direction = {dx / distance, dy / distance, dz / distance};
-                        distance *= 1000;
-                        double Gforce = (G * obj.mass * obj2.mass) / (distance * distance);
-                        
+        if (distance > 0) {
+            std::vector<float> direction = {dx / distance, dy / distance, dz / distance};
+            distance *= 1000;
+            double Gforce = (G * obj.mass * obj2.mass) / (distance * distance);
+            
+            float acc1 = Gforce / obj.mass;
+            std::vector<float> acc = {direction[0] * acc1, direction[1]*acc1, direction[2]*acc1};
+            
+            ////Repulsive Force --> Force of repulsion between two objects to prevent intersections immeadiately
+            glm::vec3 repulsion = obj.CalculateRepulsionForce(obj2, 1e-15);
 
-                        float acc1 = Gforce / obj.mass;
-                        std::vector<float> acc = {direction[0] * acc1, direction[1]*acc1, direction[2]*acc1};
-                        
-                        ////Repulsive Force --> Force of repulsion between two objects to prevent intersections immeadiately
-                        glm::vec3 repulsion = obj.CalculateRepulsionForce(obj2, 1e-15);
+            if(!pause){
+                obj.accelerate(acc[0] + repulsion.x, acc[1] + repulsion.y, acc[2] + repulsion.z);
+            }
 
+            //collision
+            obj.velocity *= obj.CheckCollision(obj2);
 
-                        if(!pause){
-                            obj.accelerate(acc[0] + repulsion.x, acc[1] + repulsion.y, acc[2] + repulsion.z);
-                        }
-
-                        //collision
-                        obj.velocity *= obj.CheckCollision(obj2);
                     }
                 }
             }
