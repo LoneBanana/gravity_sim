@@ -38,11 +38,9 @@ void main() {
     }
 })glsl";
 
-bool mousePressed = false;
-bool firstMouse = true;
 bool running = true;
 bool pause = false;
-glm::vec3 cameraPos   = glm::vec3(0.0f, 0.0f,  -1.0f);
+glm::vec3 cameraPos   = glm::vec3(0.0f, 0.0f,  1.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp    = glm::vec3(0.0f, 1.0f,  0.0f);
 float lastX = 400.0, lastY = 300.0;
@@ -251,6 +249,7 @@ int main() {
 
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     //projection matrix
     glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 750000.0f);
@@ -502,7 +501,7 @@ void UpdateCam(GLuint shaderProgram, glm::vec3 cameraPos) {
 }
 
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-    float cameraSpeed = 5000.0f * deltaTime; // Increased speed for space navigation
+    float cameraSpeed = 1000.0f * deltaTime;
     bool shiftPressed = (mods & GLFW_MOD_SHIFT) != 0;
     Object& lastObj = objs[objs.size() - 1];
     
@@ -528,18 +527,6 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         cameraPos -= cameraSpeed * cameraUp;
     }
 
-    // Add Q and E for roll rotation when mouse is pressed
-    if (mousePressed) {
-        if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) {
-            // Roll left
-            cameraUp = glm::rotate(glm::mat4(1.0f), glm::radians(1.0f), cameraFront) * glm::vec4(cameraUp, 1.0f);
-        }
-        if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) {
-            // Roll right
-            cameraUp = glm::rotate(glm::mat4(1.0f), glm::radians(-1.0f), cameraFront) * glm::vec4(cameraUp, 1.0f);
-        }
-    }
-
     if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS){
         pause = true;
     }
@@ -547,7 +534,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         pause = false;
     }
     
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS){ // Changed from Q to ESC for quit
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS){
         glfwTerminate();
         glfwWindowShouldClose(window);
         running = false;
@@ -582,23 +569,13 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     
 };
 void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
-    if (!mousePressed) {
-        firstMouse = true;
-        return;
-    }
-
-    if (firstMouse) {
-        lastX = xpos;
-        lastY = ypos;
-        firstMouse = false;
-    }
 
     float xoffset = xpos - lastX;
     float yoffset = lastY - ypos; 
     lastX = xpos;
     lastY = ypos;
 
-    float sensitivity = 0.01f;
+    float sensitivity = 0.1f;
     xoffset *= sensitivity;
     yoffset *= sensitivity;
 
@@ -614,27 +591,23 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
     front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
     cameraFront = glm::normalize(front);
 }
-
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods){
     if (button == GLFW_MOUSE_BUTTON_LEFT){
         if (action == GLFW_PRESS){
-            mousePressed = true;
-            firstMouse = true;
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-            
             objs.emplace_back(glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0f, 0.0f, 0.0f), initMass);
             objs[objs.size()-1].Initalizing = true;
         };
         if (action == GLFW_RELEASE){
-            mousePressed = false;
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-            
             objs[objs.size()-1].Initalizing = false;
             objs[objs.size()-1].Launched = true;
         };
     };
+    // if (!objs.empty() && button == GLFW_MOUSE_BUTTON_RIGHT && objs[objs.size()-1].Initalizing) {
+    //     if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+    //         objs[objs.size()-1].mass *= 1.2;}
+    //         std::cout<<"MASS: "<<objs[objs.size()-1].mass<<std::endl;
+    // }
 };
-
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset){
     float cameraSpeed = 50000.0f * deltaTime;
     if(yoffset>0){
@@ -666,7 +639,7 @@ std::vector<float> CreateGridVertices(float size, int divisions, const std::vect
     float step = size / divisions;
     float halfSize = size / 2.0f;
 
-    // Create the base grid (same as your original code)
+    // x axis
     for (int yStep = 3; yStep <= 3; ++yStep) {
         float y = -halfSize*0.3f + yStep * step;
         for (int zStep = 0; zStep <= divisions; ++zStep) {
@@ -680,6 +653,7 @@ std::vector<float> CreateGridVertices(float size, int divisions, const std::vect
         }
     }
 
+    // zaxis
     for (int xStep = 0; xStep <= divisions; ++xStep) {
         float x = -halfSize + xStep * step;
         for (int yStep = 3; yStep <= 3; ++yStep) {
@@ -692,35 +666,43 @@ std::vector<float> CreateGridVertices(float size, int divisions, const std::vect
             }
         }
     }
-
-    // CORRECTED spacetime curvature displacement
+    
+    // Apply spacetime curvature with safeguards
     for (int i = 0; i < vertices.size(); i += 3) {
         glm::vec3 vertexPos(vertices[i], vertices[i+1], vertices[i+2]);
         float totalDisplacement = 0.0f;
         
         for (const auto& obj : objs) {
+            // Skip objects that are initializing
+            if (obj.Initalizing) continue;
+            
             glm::vec3 toObject = obj.GetPos() - vertexPos;
             float distance = glm::length(toObject);
             
-            // Convert to meters and ensure reasonable minimum distance
-            float distance_m = std::max(distance * 1000.0f, 1.0f);
+            // Minimum distance threshold to prevent division by zero
+            if (distance < 10.0f) continue;
             
-            // Proper Schwarzschild radius calculation
-            double rs = (2.0 * G * obj.mass) / (c * c);
+            float distance_m = distance * 1000.0f;
+            float rs = (2.0f * G * obj.mass) / (c * c);
             
-            // Reasonable curvature displacement (much smaller scale)
-            if (distance_m > rs && rs > 0) {
-                // Simplified curvature effect - proportional to mass/distance
-                float curvature = (obj.mass / 1e20f) / (distance + 0.1f);
-                totalDisplacement += curvature * 50.0f; // Small scaling factor
+            // Only calculate if distance is safely greater than Schwarzschild radius
+            if (distance_m > rs * 1.5f) {  // 1.5x safety margin
+                float sqrtTerm = rs * (distance_m - rs);
+                if (sqrtTerm > 0.0f) {  // Additional check
+                    float z = 2.0f * sqrt(sqrtTerm) * 100.0f;
+                    // Clamp to reasonable values
+                    z = glm::clamp(z, -5000.0f, 5000.0f);
+                    totalDisplacement += z;
+                }
             }
         }
         
-        // Apply displacement to y-coordinate (vertical displacement)
-        // Use a much smaller scaling factor and don't subtract large values
-        vertices[i+1] += totalDisplacement;
+        // Apply displacement with clamping
+        float newY = (vertexPos.y + totalDisplacement) / 15.0f - 3000.0f;
+        newY = glm::clamp(newY, -10000.0f, 10000.0f);  // Prevent extreme values
+        vertices[i+1] = newY;
     }
-
+    
     return vertices;
 }
 
