@@ -325,7 +325,7 @@ for(auto& obj2 : objs){
             float minDistance = (obj.radius + obj2.radius) * 10.0f;  // INCREASED THRESHOLD
             
             if (distance < minDistance) {
-                repulsionAcc = -1000000000.0f / (distance * distance);
+                repulsionAcc = -5e8f / (distance * distance);
                 std::cout << "REPULSION ACTIVE! Distance: " << distance << " Acc: " << repulsionAcc << std::endl;
             }
             
