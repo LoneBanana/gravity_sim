@@ -7,21 +7,22 @@
 #include <iostream>
 
 const char* vertexShaderSource = R"glsl(
-#version 330 core
-layout(location=0) in vec3 aPos;
+#version 140
+attribute vec3 aPos;
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
-out float lightIntensity;
+varying float lightIntensity;
 void main() {
     gl_Position = projection * view * model * vec4(aPos, 1.0);
     vec3 worldPos = (model * vec4(aPos, 1.0)).xyz;
     vec3 normal = normalize(aPos);
     vec3 dirToCenter = normalize(-worldPos);
-    lightIntensity = max(dot(normal, dirToCenter), 0.15);})glsl";
+    lightIntensity = max(dot(normal, dirToCenter), 0.15);
+})glsl";
 
 const char* fragmentShaderSource = R"glsl(
-#version 330 core
+#version 140
 in float lightIntensity;
 out vec4 FragColor;
 uniform vec4 objectColor;
