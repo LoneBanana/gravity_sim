@@ -6,18 +6,37 @@
 #include <vector>
 #include <iostream>
 
-const char* vertexShaderSource = R"glsl(#version 330 core
-layout(location=0)in vec3 aPos;uniform mat4 model;uniform mat4 view;uniform mat4 projection;
-void main(){gl_Position=projection*view*model*vec4(aPos,1.0);})glsl";
+const char* vertexShaderSource = R"glsl(
+#version 140
+attribute vec3 aPos;
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
+varying float lightIntensity;
+void main() {
+    gl_Position = projection * view * model * vec4(aPos, 1.0);
+    vec3 worldPos = (model * vec4(aPos, 1.0)).xyz;
+    vec3 normal = normalize(aPos);
+    vec3 dirToCenter = normalize(-worldPos);
+    lightIntensity = max(dot(normal, dirToCenter), 0.15);
+})glsl";
 
 const char* fragmentShaderSource = R"glsl(
-#version 330 core
-out vec4 FragColor;
-uniform vec4 objectColor; // Add this uniform
+#version 140
+varying float lightIntensity;
+uniform vec4 objectColor;
+uniform bool isGrid;
+uniform bool GLOW;
 void main() {
-    FragColor = objectColor; // Use the uniform color
-}
-)glsl";
+    if (isGrid) {
+        gl_FragColor = objectColor;
+    } else if(GLOW){
+        gl_FragColor = vec4(objectColor.rgb * 100000.0, objectColor.a);
+    } else {
+        float fade = smoothstep(0.0, 10.0, lightIntensity*10.0);
+        gl_FragColor = vec4(objectColor.rgb * fade, objectColor.a);
+    }
+})glsl";
 
 bool running = true;
 bool pause = false;
@@ -167,15 +186,20 @@ int main() {
     glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 750000.0f);
     GLint projectionLoc = glGetUniformLocation(shaderProgram, "projection");
     glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-    cameraPos = glm::vec3(0.0f, 1000.0f,  5000.0f);
+    cameraPos = glm::vec3(0.0f, 5000.0f, 0.0f);  // Position above the scene
+    pitch = -89.0f;  // Look straight down
 
     
     objs = {
-        Object(glm::vec3(3844, 0, 0), glm::vec3(0, 0, 228), 7.34767309*pow(10, 22), 3344),
-        // Object(glm::vec3(-250, 0, 0), glm::vec3(0, -50, 0), 7.34767309*pow(10, 22), 3344),
-        Object(glm::vec3(0, 0, 0), glm::vec3(0, 0, 0), 5.97219*pow(10, 24), 5515),
+    Object(glm::vec3(0, 0, 0), glm::vec3(0, 0, 0), 1.989*pow(10, 27), 5515),
+    Object(glm::vec3(-3000, 0, -2000), glm::vec3(1200, 0, 900), 5.97219*pow(10, 23), 3344),
+    Object(glm::vec3(-2500, 0, 2500), glm::vec3(1000, 0, -1100), 5.97219*pow(10, 23), 3344),
+    Object(glm::vec3(1500, 0, -500), glm::vec3(-800, 0, 1800), 7.34767309*pow(10, 23), 3344),
+};
 
-    };
+
+    //Object --> (initPosition, initVelocity, mass, density)
+    
     std::vector<float> gridVertices = CreateGridVertices(100000.0f, 50, objs);
     CreateVBOVAO(gridVAO, gridVBO, gridVertices.data(), gridVertices.size());
     std::cout<<"Earth radius: "<<objs[1].radius<<std::endl;
@@ -187,6 +211,24 @@ int main() {
         lastFrame = currentFrame;
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        //Code added
+        float cameraSpeed = 500.0f * deltaTime;
+if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+    cameraPos += cameraSpeed * cameraFront;
+if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+    cameraPos -= cameraSpeed * cameraFront;
+if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+    cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+    cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
+    cameraPos += cameraSpeed * cameraUp;
+if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+    cameraPos -= cameraSpeed * cameraUp;
+
+glfwSetKeyCallback(window, keyCallback);
+
+
 
         glfwSetKeyCallback(window, keyCallback);
         glfwSetMouseButtonCallback(window, mouseButtonCallback);
@@ -211,6 +253,7 @@ int main() {
         // Draw the grid
         glUseProgram(shaderProgram);
         glUniform4f(objectColorLoc, 1.0f, 1.0f, 1.0f, 0.25f); // White color with 50% transparency for the grid
+        glUniform1i(glGetUniformLocation(shaderProgram, "isGrid"), 1);
         gridVertices = CreateGridVertices(10000.0f, 50, objs);
         glBindBuffer(GL_ARRAY_BUFFER, gridVBO);
         glBufferData(GL_ARRAY_BUFFER, gridVertices.size() * sizeof(float), gridVertices.data(), GL_DYNAMIC_DRAW);
