@@ -293,30 +293,50 @@ glfwSetKeyCallback(window, keyCallback);
         for(auto& obj : objs) {
             glUniform4f(objectColorLoc, obj.color.r, obj.color.g, obj.color.b, obj.color.a);
 
-            for(auto& obj2 : objs){
-if(&obj2 != &obj && !obj.Initalizing && !obj2.Initalizing){
+for(auto& obj2 : objs){
+    if(&obj2 != &obj && !obj.Initalizing && !obj2.Initalizing){
         float dx = obj2.GetPos()[0] - obj.GetPos()[0];
         float dy = obj2.GetPos()[1] - obj.GetPos()[1];
         float dz = obj2.GetPos()[2] - obj.GetPos()[2];
         float distance = sqrt(dx * dx + dy * dy + dz * dz);
 
-        if (distance > 0) {
-            std::vector<float> direction = {dx / distance, dy / distance, dz / distance};
-            distance *= 1000;
-            double Gforce = (G * obj.mass * obj2.mass) / (distance * distance);
+        if (distance > 0.1f) {
+            std::vector<float> direction = {dx / distance, dy / distance, dz / distance}; //dz/direction is what was suggested --> testing this just to see
             
+            // === GRAVITATIONAL ATTRACTION ===
+            float distance_m = distance * 1000.0f;
+            double Gforce = (G * obj.mass * obj2.mass) / (distance_m * distance_m);
             float acc1 = Gforce / obj.mass;
-            std::vector<float> acc = {direction[0] * acc1, direction[1]*acc1, direction[2]*acc1};
+            std::vector<float> gravAcc = {direction[0] * acc1, direction[1] * acc1, direction[2] * acc1};
             
-            ////Repulsive Force --> Force of repulsion between two objects to prevent intersections immeadiately
-            glm::vec3 repulsion = obj.CalculateRepulsionForce(obj2, 1e-15);
+            // === DEBUG: Print radius and distance ===
+            static int frameCounter = 0;
+            if (frameCounter % 60 == 0) {  // Print every 60 frames
+                std::cout << "Distance: " << distance 
+                          << " | Obj1 radius: " << obj.radius 
+                          << " | Obj2 radius: " << obj2.radius 
+                          << " | Sum: " << (obj.radius + obj2.radius) 
+                          << " | Threshold: " << (obj.radius + obj2.radius) * 3.0f << std::endl;
+            }
+            frameCounter++;
+            
+            // === REPULSIVE FORCE ===
+            float repulsionAcc = 0.0f;
+            float minDistance = (obj.radius + obj2.radius) * 10.0f;  // INCREASED THRESHOLD
+            
+            if (distance < minDistance) {
+                repulsionAcc = -1000000000.0f / (distance * distance);
+                std::cout << "REPULSION ACTIVE! Distance: " << distance << " Acc: " << repulsionAcc << std::endl;
+            }
+            
+            std::vector<float> repAcc = {direction[0] * repulsionAcc, direction[1] * repulsionAcc, direction[2] * repulsionAcc};
 
             if(!pause){
-                obj.accelerate(acc[0] + repulsion.x, acc[1] + repulsion.y, acc[2] + repulsion.z);
+                obj.accelerate(gravAcc[0] + repAcc[0], gravAcc[1] + repAcc[1], gravAcc[2] + repAcc[2]);
             }
 
-            //collision
             obj.velocity *= obj.CheckCollision(obj2);
+
 
                     }
                 }
